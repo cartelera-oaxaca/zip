@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MAUSKI V6.1 FIX CARPETAS</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:monospace;background:#0d1117;color:#e6edf3;padding:14px;max-width:700px;margin:auto}
+h1{text-align:center;color:#ff0040;margin:10px 0}
+.card{background:#161b22;border:1px solid #30363d;padding:12px;margin:10px 0;border-radius:10px}
+input,textarea{width:100%;padding:12px;background:#0d1117;border:1px solid #30363d;color:#fff;border-radius:8px;margin-top:6px}
+.drop{border:2px dashed #ff0040;padding:28px;text-align:center;border-radius:12px;cursor:pointer}
+.drop.ok{border-color:#00ff88;background:rgba(0,255,136,.07)}
+button{width:100%;padding:16px;background:#238636;color:#fff;border:none;border-radius:10px;font-weight:900;font-size:16px;cursor:pointer}
+button:disabled{background:#30363d}
+#log{background:#000;padding:10px;font-size:11px;color:#00ff88;max-height:250px;overflow:auto;white-space:pre-wrap;border-radius:8px;margin-top:10px}
+.badge{font-size:10px;background:#21262d;padding:3px 6px;border-radius:4px;margin:2px;display:inline-block}
+</style>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="./manifest.json">
+</head>
+<body>
+<h1>⚡ MAUSKI V6.1 FIX ⚡</h1>
+<div class="card">
+<label>TOKEN GITHUB</label><input id="token" type="password" placeholder="ghp_...">
+<label style="margin-top:8px;display:block">NOMBRE REPO</label><input id="repo" placeholder="mi-proyecto">
+</div>
+<div class="card">
+<button id="btnFolder" style="background:#1f6feb;margin-bottom:8px">📁 SELECCIONAR CARPETA COMPLETA</button>
+<button id="btnFiles" style="background:#21262d;border:1px solid #30363d">📄 ARCHIVOS SUELTOS</button>
+</div>
+<div class="drop" id="zona">
+<div id="zonaTxt">📁 ARRASTRA TU CARPETA AQUI</div>
+<div id="lista" style="margin-top:10px"></div>
+</div>
+<input type="file" id="fileInput" multiple style="display:none">
+<input type="file" id="fileFolder" webkitdirectory style="display:none">
+<div class="card"><label>O PEGA HTML</label><textarea id="code" rows="5" placeholder="<html>...</html>"></textarea></div>
+<button id="btnSubir">🚀 SUBIR TODO</button>
+<div id="log">Listo...</div>
+<div id="result"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+let archivos=[];
+const log=m=>{$('log').innerText+='\n'+m; $('log').scrollTop=99999;}
+const toBase64=f=>new Promise((res,rej)=>{let r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(f);});
+
+function render(){
+ if(!archivos.length){$('zonaTxt').innerHTML='📁 ARRASTRA TU CARPETA AQUI';$('lista').innerHTML='';$('zona').classList.remove('ok');return;}
+ $('zona').classList.add('ok');
+ $('zonaTxt').innerText=`✅ ${archivos.length} archivos listos`;
+ $('lista').innerHTML=archivos.map(f=>`<span class=badge>${f.path}</span>`).join(' ');
+}
+
+function limpiarPath(p, isFolder){
+ // Si es webkitdirectory: mi-sitio/index.html -> index.html , mi-sitio/css/style.css -> css/style.css
+ if(isFolder && p.includes('/')) return p.split('/').slice(1).join('/') || 'index.html';
+ return p;
+}
+
+function procesarLista(fileList){
+ const isFolder = fileList[0] && fileList[0].webkitRelativePath;
+ archivos = Array.from(fileList).map(f=>{
+   let raw = f.webkitRelativePath || f.name;
+   let path = limpiarPath(raw, !!isFolder);
+   return {file:f, path:path.replace(/\\/g,'/')};
+ }).filter(a=>a.path && !a.path.startsWith('.'));
+ render();
+ log(`Cargados ${archivos.length} archivos`);
+}
+
+$('btnFolder').onclick=()=>$('fileFolder').click();
+$('btnFiles').onclick=()=>$('fileInput').click();
+$('fileInput').onchange=e=>procesarLista(e.target.files);
+$('fileFolder').onchange=e=>procesarLista(e.target.files);
+
+const zona=$('zona');
+zona.onclick=()=>$('fileFolder').click();
+zona.ondragover=e=>{e.preventDefault(); zona.style.borderColor='#00ff88';};
+zona.ondragleave=()=>zona.style.borderColor='#ff0040';
+zona.ondrop=async e=>{
+ e.preventDefault(); zona.style.borderColor='#ff0040';
+ // Usa files normal si no es carpeta compleja
+ procesarLista(e.dataTransfer.files);
+};
+
+$('btnSubir').onclick=async()=>{
+ let token=$('token').value.trim();
+ let repo=$('repo').value.trim().toLowerCase().replace(/[^a-z0-9-_]/g,'-');
+ let code=$('code').value.trim();
+ let btn=$('btnSubir');
+ if(!token || token.length<20){alert('Token malo may');return;}
+ if(!repo){alert('Pon nombre repo');return;}
+ if(archivos.length==0 && !code){alert('Selecciona carpeta o pega html');return;}
+ btn.disabled=true; $('log').innerText='';
+ try{
+  log('→ Verificando token...');
+  let uR=await fetch('https://api.github.com/user',{headers:{Authorization:'token '+token}});
+  let uJ=await uR.json(); if(!uR.ok) throw new Error(uJ.message);
+  let user=uJ.login; log('✓ '+user);
+
+  log('→ Creando repo '+repo);
+  let cr=await fetch('https://api.github.com/user/repos',{method:'POST',headers:{Authorization:'token '+token,'Content-Type':'application/json'},body:JSON.stringify({name:repo,auto_init:true,private:false})});
+  if(cr.status!==201 && cr.status!==422){throw new Error(await cr.text());}
+  if(cr.status===422) log('! Repo ya existía, usando ese');
+  await new Promise(r=>setTimeout(r,2500));
+
+  async function subir(path,b64){
+   // FIX IMPORTANTE: encodeURI para carpetas con espacios
+   let urlPath = path.split('/').map(encodeURIComponent).join('/');
+   let sha=null;
+   try{
+     let c=await fetch(`https://api.github.com/repos/${user}/${repo}/contents/${urlPath}`,{headers:{Authorization:'token '+token}});
+     if(c.ok){let j=await c.json(); sha=j.sha;}
+   }catch{}
+   let body={message:'Mauski V6.1: '+path,content:b64,branch:'main'};
+   if(sha) body.sha=sha;
+   let r=await fetch(`https://api.github.com/repos/${user}/${repo}/contents/${urlPath}`,{method:'PUT',headers:{Authorization:'token '+token,'Content-Type':'application/json'},body:JSON.stringify(body)});
+   if(!r.ok) throw new Error('Error '+path+': '+(await r.text()).slice(0,200));
+  }
+
+  if(archivos.length>0){
+   log(`→ Subiendo ${archivos.length} archivos...`);
+   for(let i=0;i<archivos.length;i++){
+     let b64=await toBase64(archivos[i].file);
+     await subir(archivos[i].path, b64);
+     log(` + ${archivos[i].path} (${i+1}/${archivos.length})`);
+   }
+  }else{
+   log('→ Subiendo index.html pegado...');
+   let b64=btoa(unescape(encodeURIComponent(code)));
+   await subir('index.html', b64);
+  }
+
+  log('→ Activando Pages...');
+  try{
+    await fetch(`https://api.github.com/repos/${user}/${repo}/pages`,{method:'POST',headers:{Authorization:'token '+token,'Content-Type':'application/json'},body:JSON.stringify({source:{branch:'main',path:'/'}})});
+  }catch{}
+  
+  let url=`https://${user}.github.io/${repo}/`;
+  $('result').innerHTML=`<div class=card style=border-color:#00ff88><b style=color:#00ff88>✅ LISTO:</b><br><a href="${url}" target=_blank style=color:#58a6ff;word-break:break-all>${url}</a><br><br><button onclick="navigator.clipboard.writeText('${url}');alert('Copiado')" style="background:#000;margin-top:10px">📋 COPIAR LINK</button><br><br><small>Espera 1-2 min y recarga, Github tarda.</small></div>`;
+  log('✓ URL: '+url);
+  $('token').value='';
+ }catch(e){log('❌ '+e.message); alert(e.message);}
+ finally{btn.disabled=false;}
+};
+</script>
+</body>
+</html>
