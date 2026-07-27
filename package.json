@@ -1,10 +1,9 @@
 {
-  "name": "app-mauski-templo",
+  "name": "zip",
   "version": "1.0.0",
-  "description": "FORJADO EN EL TEMPLO MAUSKI V3 UNIVERSAL",
+  "description": "Zip convertidor",
   "dependencies": {
-    "@capacitor/core": "^6.0.0",
-    "@capacitor/android": "^6.0.0",
-    "@capacitor/splash-screen": "^6.0.0"
+    "@capacitor/android": "^5.0.0",
+    "@capacitor/core": "^5.0.0"
   }
 }
