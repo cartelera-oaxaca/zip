@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>MAUSKI TEMPLO FUSION V3 - UNIVERSAL</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body {
+            font-family: monospace;
+            background: #000;
+            color: #fff;
+            padding: 15px;
+            touch-action: manipulation;
+        }
+        h1 {
+            font-size: 22px;
+            font-weight: 900;
+            text-align: center;
+            margin-bottom: 4px;
+            color: #ff0040;
+            text-shadow: 0 0 15px #ff0040;
+        }
+       .sub {
+            text-align: center;
+            color: #666;
+            font-size: 10px;
+            margin-bottom: 15px;
+        }
+       .defaults {
+            font-size: 10px;
+            color: #00ff88;
+            text-align: center;
+            margin-bottom: 15px;
+            background: #111;
+            padding: 8px;
+            border: 1px solid #333;
+        }
+       .zona-drop {
+            width: 100%;
+            min-height: 180px;
+            border: 3px dashed #ff0040;
+            background: #0a0a0a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            margin-bottom: 15px;
+            cursor: pointer;
+            padding: 20px;
+        }
+       .zona-drop:active { background: #1a0a0a; }
+       .zona-drop-texto { color: #ff0040; font-weight: 900; font-size: 15px; text-align: center; }
+       .zona-drop-sub { color: #666; font-size: 10px; margin-top: 8px; text-align: center; }
+        input[type="file"] { display: none; }
+       .modo-detectado {
+            background: #00ff88;
+            color: #000;
+            padding: 5px;
+            text-align: center;
+            font-size: 10px;
+            font-weight: 900;
+            margin-bottom: 10px;
+        }
+        textarea {
+            width: 100%;
+            height: 120px;
+            padding: 15px;
+            background: #0a0a0a;
+            border: 2px solid #333;
+            color: #00ff88;
+            font-family: monospace;
+            font-size: 12px;
+            margin-bottom: 10px;
+        }
+        button {
+            width: 100%;
+            padding: 22px;
+            background: #ff0040;
+            color: #000;
+            border: none;
+            font-size: 18px;
+            font-weight: 900;
+            margin-top: 10px;
+            box-shadow: 0 0 20px #ff0040;
+            cursor: pointer;
+        }
+        button:active { background: #cc0033; transform: scale(0.98); }
+        button:disabled { background: #333; color: #666; box-shadow: none; }
+        #status {
+            margin-top: 12px;
+            padding: 15px;
+            background: #111;
+            border: 2px solid #333;
+            font-size: 12px;
+        }
+       .log {
+            font-size: 10px;
+            color: #00ff88;
+            font-family: monospace;
+            margin-top: 8px;
+            line-height: 1.6;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+       .archivos-lista {
+            font-size: 9px;
+            color: #888;
+            margin-top: 5px;
+            text-align: center;
+        }
+       .btn-secundario {
+            background: #00ff88;
+            font-size: 14px;
+            padding: 15px;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>⚡ MAUSKI TEMPLO FUSION V3 ⚡</h1>
+    <div class="sub">UNIVERSAL - CEL Y LAP - SOLO CLICKS</div>
+    <div class="modo-detectado" id="modoDetectado">DETECTANDO DISPOSITIVO...</div>
+    <div class="defaults">AppMauski | com.mauski.templo | v1.0.0 | Splash: #000000</div>
+
+    <div class="zona-drop" id="zonaDrop">
+        <div class="zona-drop-texto" id="textoZona">CARGANDO...</div>
+        <div class="zona-drop-sub" id="subZona"></div>
+        <div class="archivos-lista" id="listaArchivos"></div>
+    </div>
+    <input type="file" id="carpetaInput" webkitdirectory directory multiple>
+    <input type="file" id="archivoInput" multiple accept=".html,.css,.js,.json,.png,.jpg,.svg">
+
+    <textarea id="codigoExtra" placeholder="O PEGA CÓDIGO AQUÍ SI QUIERES...
+
+Si no subes nada, esto se vuelve tu index.html"></textarea>
+
+    <button id="btnFusion" onclick="ejecutarFusion()">⚡ FORJAR TEMPLO COMPLETO ⚡</button>
+    <button class="btn-secundario" onclick="compartirZip()" id="btnCompartir" style="display:none">📲 COMPARTIR ZIP</button>
+
+    <div id="status">
+        <div id="statusTexto">TEMPLO ESPERANDO...</div>
+        <div class="log" id="log"></div>
+    </div>
+
+    <script>
+        // DEFAULTS DEL TEMPLO - QUEMADOS
+        const TEMPLO = {
+            appName: "AppMauski",
+            appId: "com.mauski.templo",
+            version: "1.0.0",
+            splashColor: "#000000"
+        };
+
+        let archivosCarpeta = [];
+        let esMobile = false;
+        let ultimoZipBlob = null;
+
+        // DETECTAR SI ES MOBILE
+        window.onload = () => {
+            esMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            const modoEl = document.getElementById('modoDetectado');
+            const textoZona = document.getElementById('textoZona');
+            const subZona = document.getElementById('subZona');
+            const zona = document.getElementById('zonaDrop');
+
+            if (esMobile) {
+                modoEl.innerText = '📱 MODO CELULAR DETECTADO';
+                modoEl.style.background = '#0088ff';
+                textoZona.innerText = 'SELECCIONA TUS ARCHIVOS';
+                subZona.innerText = 'Toca aquí pa elegir HTML, CSS, JS, imágenes';
+                zona.onclick = () => document.getElementById('archivoInput').click();
+            } else {
+                modoEl.innerText = '💻 MODO LAP DETECTADO';
+                textoZona.innerText = 'AVIÉNTALE LA CARPETA MADRE';
+                subZona.innerText = 'Click o arrastra la carpeta completa aquí';
+                zona.onclick = () => document.getElementById('carpetaInput').click();
+                initDragDrop();
+            }
+        };
+
+        // INPUT CARPETA - LAP
+        document.getElementById('carpetaInput').addEventListener('change', function(e) {
+            archivosCarpeta = Array.from(e.target.files);
+            actualizarListaArchivos();
+        });
+
+        // INPUT ARCHIVOS - CEL
+        document.getElementById('archivoInput').addEventListener('change', function(e) {
+            archivosCarpeta = Array.from(e.target.files);
+            actualizarListaArchivos();
+        });
+
+        function actualizarListaArchivos() {
+            const lista = document.getElementById('listaArchivos');
+            lista.innerHTML = `${archivosCarpeta.length} archivos tragados<br>${archivosCarpeta.slice(0,2).map(f => f.name).join('<br>')}${archivosCarpeta.length > 2? '<br>...' : ''}`;
+            document.getElementById('statusTexto').innerText = `${archivosCarpeta.length} archivos listos pa forjar`;
+        }
+
+        // DRAG & DROP SOLO PA LAP
+        function initDragDrop() {
+            const zona = document.getElementById('zonaDrop');
+            ['dragenter', 'dragover'].forEach(evt => {
+                zona.addEventListener(evt, e => {
+                    e.preventDefault();
+                    zona.style.background = '#1a0a0a';
+                    zona.style.borderColor = '#00ff88';
+                });
+            });
+            zona.addEventListener('dragleave', () => {
+                zona.style.background = '#0a0a0a';
+                zona.style.borderColor = '#ff0040';
+            });
+            zona.addEventListener('drop', e => {
+                e.preventDefault();
+                zona.style.background = '#0a0a0a';
+                zona.style.borderColor = '#ff0040';
+                document.getElementById('carpetaInput').files = e.dataTransfer.files;
+                document.getElementById('carpetaInput').dispatchEvent(new Event('change'));
+            });
+        }
+
+        async function ejecutarFusion() {
+            const codigoExtra = document.getElementById('codigoExtra').value.trim();
+            const btn = document.getElementById('btnFusion');
+            const log = document.getElementById('log');
+            const status = document.getElementById('statusTexto');
+
+            if (archivosCarpeta.length === 0 &&!codigoExtra) {
+                status.innerText = 'ÉCHALE ARCHIVOS O CÓDIGO AL TEMPLO CAPI';
+                navigator.vibrate && navigator.vibrate(200);
+                return;
+            }
+
+            btn.disabled = true;
+            log.innerHTML = '';
+
+            status.innerText = 'TEMPLO TRAGANDO ARCHIVOS...';
+            log.innerHTML = '[TEMPLO] Iniciando forja universal...<br>';
+            await sleep(300);
+
+            const zip = new JSZip();
+            const www = zip.folder("www");
+
+            // METER ARCHIVOS
+            if (archivosCarpeta.length > 0) {
+                log.innerHTML += `[TEMPLO] Procesando ${archivosCarpeta.length} archivos...<br>`;
+                for (let file of archivosCarpeta) {
+                    let path = file.webkitRelativePath || file.name;
+                    if (esMobile) path = file.name; // En cel no hay carpetas
+                    else path = path.split('/').slice(1).join('/') || file.name; // Quita carpeta raíz en lap
+
+                    const content = await file.arrayBuffer();
+                    www.file(path, content);
+                    log.innerHTML += `[TEMPLO] ${path} ✓<br>`;
+                }
+            }
+
+            // SI NO HAY INDEX.HTML, USAR EL CODIGO EXTRA
+            const tieneIndex = archivosCarpeta.find(f => (f.webkitRelativePath || f.name).endsWith('index.html'));
+            if (codigoExtra &&!tieneIndex) {
+                www.file("index.html", codigoExtra);
+                log.innerHTML += '[TEMPLO] index.html creado desde código extra ✓<br>';
+            }
+
+            await sleep(400);
+            log.innerHTML += '[TEMPLO] Estructura WWW lista<br>';
+
+            // MANIFEST.JSON PA PWA
+            const manifest = {
+                name: TEMPLO.appName,
+                short_name: TEMPLO.appName.substring(0,12),
+                start_url: './index.html',
+                display: 'standalone',
+                background_color: TEMPLO.splashColor,
+                theme_color: TEMPLO.splashColor,
+                icons: [{ src: 'icon.png', sizes: '512x512', type: 'image/png' }]
+            };
+            www.file("manifest.json", JSON.stringify(manifest, null, 2));
+            log.innerHTML += '[TEMPLO] manifest.json ✓<br>';
+
+            // ARCHIVOS DEL TEMPLO
+            zip.file("package.json", JSON.stringify({
+                name: "app-mauski-templo",
+                version: TEMPLO.version,
+                description: "FORJADO EN EL TEMPLO MAUSKI V3 UNIVERSAL",
+                dependencies: {
+                    "@capacitor/core": "^6.0.0",
+                    "@capacitor/android": "^6.0.0",
+                    "@capacitor/splash-screen": "^6.0.0"
+                }
+            }, null, 2));
+
+            zip.file("capacitor.config.ts", `import { CapacitorConfig } from '@capacitor/cli';
+const config: CapacitorConfig = {
+  appId: '${TEMPLO.appId}',
+  appName: '${TEMPLO.appName}',
+  webDir: 'www',
+  plugins: {
+    SplashScreen: {
+      backgroundColor: '${TEMPLO.splashColor}',
+      showSpinner: false
+    }
+  }
+};
+export default config;`);
+
+            zip.file("capacitor.config.json", JSON.stringify({
+                appId: TEMPLO.appId,
+                appName: TEMPLO.appName,
+                webDir: "www",
+                plugins: {
+                    SplashScreen: {
+                        backgroundColor: TEMPLO.splashColor,
+                        showSpinner: false
+                    }
+                }
+            }, null, 2));
+
+            zip.file(".gitignore", `node_modules\nandroid\n.DS_Store`);
+            zip.file("FORJAR.bat", `@echo off\ntitle TEMPLO MAUSKI V3\nnpm install\nnpx cap add android\nnpx cap sync android\necho TEMPLO TERMINÓ CAPI\npause`);
+            zip.file("FORJAR.sh", `#!/bin/bash\nnpm install\nnpx cap add android\nnpx cap sync android\necho "TEMPLO TERMINÓ CAPI"`);
+
+            await sleep(400);
+            log.innerHTML += '[TEMPLO] Comprimiendo templo universal...<br>';
+
+            ultimoZipBlob = await zip.generateAsync({type:"blob"});
+            const url = URL.createObjectURL(ultimoZipBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `AppMauski-TEMPLO-V3-UNIVERSAL.zip`;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            status.innerText = `⚡ ¡TEMPLO V3 FORJADO! ⚡`;
+            log.innerHTML += '[TEMPLO] FUSION COMPLETADA ✓<br>';
+            btn.disabled = false;
+            btn.innerText = '⚡ FORJAR OTRO TEMPLO ⚡';
+
+            // MOSTRAR BOTÓN COMPARTIR EN MOBILE
+            if (esMobile && navigator.share) {
+                document.getElementById('btnCompartir').style.display = 'block';
+            }
+
+            navigator.vibrate && navigator.vibrate([100, 50, 100]);
+
+            // Reset
+            archivosCarpeta = [];
+            document.getElementById('listaArchivos').innerHTML = '';
+            document.getElementById('codigoExtra').value = '';
+            document.getElementById('carpetaInput').value = '';
+            document.getElementById('archivoInput').value = '';
+        }
+
+        async function compartirZip() {
+            if (!ultimoZipBlob) return;
+            try {
+                const file = new File([ultimoZipBlob], 'AppMauski-TEMPLO-V3.zip', { type: 'application/zip' });
+                await navigator.share({
+                    title: 'TEMPLO MAUSKI V3',
+                    text: 'Aquí está tu proyecto pa compilar Capi',
+                    files: [file]
+                });
+            } catch (err) {
+                alert('Tu cel no deja compartir archivos Capi, pero ya se descargó');
+            }
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+    </script>
+</body>
+</html>
